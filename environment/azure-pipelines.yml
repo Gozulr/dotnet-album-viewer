@@ -9,7 +9,7 @@ variables:
   imageRepository: 'gozul/dotnet-album-viewer'
   dockerRegistryServiceConnection: 'DockerHub'
   sonarQubeServiceConnection: 'SonarQube'
-  sonarProjectKey: 'dummy-project'
+  sonarProjectKey: 'dummy-project-key'
   sonarProjectName: 'dummy-project'
   imageTag: '$(Build.BuildId)'
   k8sNamespace: 'dummy-app'
