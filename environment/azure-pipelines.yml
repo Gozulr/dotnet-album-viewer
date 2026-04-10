@@ -64,6 +64,7 @@ stages:
         repository: '$(imageRepository)'
         command: 'buildAndPush'
         Dockerfile: 'docker/app/Dockerfile'
+        buildContext: '$(Build.SourcesDirectory)'
         tags: |
           $(imageTag)
           latest
