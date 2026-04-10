@@ -8,9 +8,9 @@ variables:
   buildConfiguration: 'Release'
   imageRepository: 'gozul/dotnet-album-viewer'
   dockerRegistryServiceConnection: 'DockerHub'
-  sonarQubeServiceConnection: 'SonarQube'
   sonarProjectKey: 'dummy-project-key'
   sonarProjectName: 'dummy-project'
+  sonarHostUrl: 'http://localhost:9000'
   imageTag: '$(Build.BuildId)'
   k8sNamespace: 'dummy-app'
 
@@ -18,41 +18,6 @@ stages:
 - stage: AnalyzeBuild
   displayName: 'Analyze and Build'
   jobs:
-  - job: HelloWorld
-    displayName: 'Hola Mundo en job paralelo'
-    strategy:
-      matrix:
-        job1: { INDEX: '1' }
-        job2: { INDEX: '2' }
-        job3: { INDEX: '3' }
-        job4: { INDEX: '4' }
-        job5: { INDEX: '5' }
-        job6: { INDEX: '6' }
-        job7: { INDEX: '7' }
-        job8: { INDEX: '8' }
-        job9: { INDEX: '9' }
-        job10: { INDEX: '10' }
-    steps:
-    - powershell: |
-        Write-Host "Hola Mundo $(INDEX)"
-      displayName: 'Imprimir Hola Mundo'
-
-  - job: DateFiles
-    displayName: 'Crear 10 archivos con fecha'
-    steps:
-    - powershell: |
-        New-Item -ItemType Directory -Force -Path outputfiles | Out-Null
-        1..10 | ForEach-Object {
-          $file = "outputfiles/file_$($_).txt"
-          $content = "Archivo $_ - Fecha: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-          Set-Content -Path $file -Value $content
-        }
-        Get-ChildItem outputfiles | ForEach-Object {
-          Write-Host "===== $($_.Name) ====="
-          Get-Content $_.FullName
-        }
-      displayName: 'Crear e imprimir archivos'
-
   - job: SonarBuild
     displayName: 'SonarQube + Build .NET'
     steps:
@@ -65,46 +30,24 @@ stages:
         packageType: 'sdk'
         version: '8.0.x'
 
-    - task: SonarQubePrepare@7
-      displayName: 'Prepare SonarQube analysis'
-      inputs:
-        SonarQube: '$(sonarQubeServiceConnection)'
-        scannerMode: 'dotnet'
-        projectKey: '$(sonarProjectKey)'
-        projectName: '$(sonarProjectName)'
-        extraProperties: |
-          sonar.verbose=true
-          sonar.scanner.scanAll=false
-
     - powershell: |
-        Write-Host "=== sonar-project.properties generado (si existe) ==="
-        $path = "$(Agent.BuildDirectory)\.sonarqube\out\sonar-project.properties"
-        if (Test-Path $path) {
-          Get-Content $path
-        }
-        else {
-          Write-Host "Archivo no encontrado todavía: $path"
-        }
-      displayName: 'Dump sonar-project.properties'
-      continueOnError: true
+        dotnet tool install --global dotnet-sonarscanner --version 6.*
+        $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
 
-    - powershell: |
+        dotnet sonarscanner begin `
+          /k:"$(sonarProjectKey)" `
+          /n:"$(sonarProjectName)" `
+          /d:sonar.host.url="$(sonarHostUrl)" `
+          /d:sonar.token="$(SONAR_TOKEN)" `
+          /d:sonar.verbose=true
+
         dotnet restore .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj
         dotnet build .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj --configuration $(buildConfiguration) --no-restore
-      displayName: 'Restore y Build'
 
-    - task: SonarQubeAnalyze@7
-      displayName: 'Run Code Analysis'
+        dotnet sonarscanner end /d:sonar.token="$(SONAR_TOKEN)"
+      displayName: 'SonarScanner for .NET manual'
       env:
-        BUILD_SOURCEBRANCHNAME: ''
-        BUILD_SOURCEBRANCH: ''
-        SYSTEM_PULLREQUEST_SOURCEBRANCH: ''
-        SYSTEM_PULLREQUEST_TARGETBRANCH: ''
-
-    - task: SonarQubePublish@7
-      displayName: 'Publish Quality Gate'
-      inputs:
-        pollingTimeoutSec: '300'
+        SONAR_TOKEN: $(SONAR_TOKEN)
 
 - stage: Dockerize
   displayName: 'Build and Push Image'
