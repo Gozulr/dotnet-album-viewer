@@ -1,8 +1,10 @@
 trigger:
 - main
 
+
 pool:
-  name: 'AgentDummy'
+  name: AgentDummy
+
 
 variables:
   buildConfiguration: 'Release'
@@ -14,6 +16,7 @@ variables:
   imageTag: '$(Build.BuildId)'
   k8sNamespace: 'dummy-app'
 
+
 stages:
 - stage: AnalyzeBuild
   displayName: 'Analyze and Build'
@@ -22,26 +25,25 @@ stages:
     displayName: 'Hola Mundo en job paralelo'
     strategy:
       matrix:
-        job1:  { INDEX: '1' }
-        job2:  { INDEX: '2' }
-        job3:  { INDEX: '3' }
-        job4:  { INDEX: '4' }
-        job5:  { INDEX: '5' }
-        job6:  { INDEX: '6' }
-        job7:  { INDEX: '7' }
-        job8:  { INDEX: '8' }
-        job9:  { INDEX: '9' }
+        job1: { INDEX: '1' }
+        job2: { INDEX: '2' }
+        job3: { INDEX: '3' }
+        job4: { INDEX: '4' }
+        job5: { INDEX: '5' }
+        job6: { INDEX: '6' }
+        job7: { INDEX: '7' }
+        job8: { INDEX: '8' }
+        job9: { INDEX: '9' }
         job10: { INDEX: '10' }
     steps:
-    - checkout: self
     - powershell: |
         Write-Host "Hola Mundo $(INDEX)"
       displayName: 'Imprimir Hola Mundo'
 
+
   - job: DateFiles
     displayName: 'Crear 10 archivos con fecha'
     steps:
-    - checkout: self
     - powershell: |
         New-Item -ItemType Directory -Force -Path outputfiles | Out-Null
         1..10 | ForEach-Object {
@@ -55,14 +57,15 @@ stages:
         }
       displayName: 'Crear e imprimir archivos'
 
+
   - job: SonarBuild
     displayName: 'SonarQube + Build .NET'
     steps:
     - checkout: self
       fetchDepth: 0
 
+
     - task: SonarQubePrepare@7
-      displayName: 'Prepare SonarQube analysis'
       inputs:
         SonarQube: '$(sonarQubeServiceConnection)'
         scannerMode: 'dotnet'
@@ -72,26 +75,31 @@ stages:
           sonar.verbose=true
 
     - task: UseDotNet@2
-      displayName: 'Install .NET SDK 8'
       inputs:
         packageType: 'sdk'
         version: '8.0.x'
 
     - powershell: |
-        Write-Host "=== CSPROJ ==="
-        Get-ChildItem -Recurse -Filter *.csproj | Select-Object FullName
+        Write-Host "=== sonar-project.properties generado ==="
+        Get-Content "$(Agent.BuildDirectory)\.sonarqube\out\sonar-project.properties"
+      displayName: 'Dump sonar-project.properties'
 
-        dotnet restore .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj
-        dotnet build   .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj --configuration $(buildConfiguration) --no-restore
-      displayName: 'Restore y Build proyecto'
+
+    - powershell: |
+         dotnet restore .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj
+         dotnet build   .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj --configuration $(buildConfiguration) --no-restore
+      displayName: 'Restore y Build'
+
 
     - task: SonarQubeAnalyze@7
       displayName: 'Run Code Analysis'
 
+
     - task: SonarQubePublish@7
-      displayName: 'Publish Quality Gate'
       inputs:
         pollingTimeoutSec: '300'
+      displayName: 'Publish Quality Gate'
+
 
 - stage: Dockerize
   displayName: 'Build and Push Image'
@@ -101,8 +109,6 @@ stages:
   - job: DockerBuildPush
     displayName: 'Docker Build and Push'
     steps:
-    - checkout: self
-
     - task: Docker@2
       displayName: 'Build and Push Docker image'
       inputs:
@@ -114,6 +120,7 @@ stages:
           $(imageTag)
           latest
 
+
 - stage: Deploy
   displayName: 'Deploy to Minikube'
   dependsOn: Dockerize
@@ -122,7 +129,6 @@ stages:
   - job: K8sDeploy
     displayName: 'Apply Kubernetes manifests'
     steps:
-    - checkout: self
     - powershell: |
         kubectl config current-context
         kubectl apply -f environment/namespace.yaml
