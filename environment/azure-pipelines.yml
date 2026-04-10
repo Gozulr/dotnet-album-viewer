@@ -1,10 +1,8 @@
 trigger:
 - main
 
-
 pool:
   name: AgentDummy
-
 
 variables:
   buildConfiguration: 'Release'
@@ -15,7 +13,6 @@ variables:
   sonarProjectName: 'dummy-project'
   imageTag: '$(Build.BuildId)'
   k8sNamespace: 'dummy-app'
-
 
 stages:
 - stage: AnalyzeBuild
@@ -40,7 +37,6 @@ stages:
         Write-Host "Hola Mundo $(INDEX)"
       displayName: 'Imprimir Hola Mundo'
 
-
   - job: DateFiles
     displayName: 'Crear 10 archivos con fecha'
     steps:
@@ -57,15 +53,20 @@ stages:
         }
       displayName: 'Crear e imprimir archivos'
 
-
   - job: SonarBuild
     displayName: 'SonarQube + Build .NET'
     steps:
     - checkout: self
       fetchDepth: 0
 
+    - task: UseDotNet@2
+      displayName: 'Instalar .NET SDK 8'
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x'
 
     - task: SonarQubePrepare@7
+      displayName: 'Prepare SonarQube analysis'
       inputs:
         SonarQube: '$(sonarQubeServiceConnection)'
         scannerMode: 'dotnet'
@@ -73,11 +74,7 @@ stages:
         projectName: '$(sonarProjectName)'
         extraProperties: |
           sonar.verbose=true
-
-    - task: UseDotNet@2
-      inputs:
-        packageType: 'sdk'
-        version: '8.0.x'
+          sonar.scanner.scanAll=false
 
     - powershell: |
         Write-Host "=== sonar-project.properties generado (si existe) ==="
@@ -91,22 +88,23 @@ stages:
       displayName: 'Dump sonar-project.properties'
       continueOnError: true
 
-
     - powershell: |
-         dotnet restore .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj
-         dotnet build   .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj --configuration $(buildConfiguration) --no-restore
+        dotnet restore .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj
+        dotnet build .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj --configuration $(buildConfiguration) --no-restore
       displayName: 'Restore y Build'
-
 
     - task: SonarQubeAnalyze@7
       displayName: 'Run Code Analysis'
-
+      env:
+        BUILD_SOURCEBRANCHNAME: ''
+        BUILD_SOURCEBRANCH: ''
+        SYSTEM_PULLREQUEST_SOURCEBRANCH: ''
+        SYSTEM_PULLREQUEST_TARGETBRANCH: ''
 
     - task: SonarQubePublish@7
+      displayName: 'Publish Quality Gate'
       inputs:
         pollingTimeoutSec: '300'
-      displayName: 'Publish Quality Gate'
-
 
 - stage: Dockerize
   displayName: 'Build and Push Image'
@@ -126,7 +124,6 @@ stages:
         tags: |
           $(imageTag)
           latest
-
 
 - stage: Deploy
   displayName: 'Deploy to Minikube'
