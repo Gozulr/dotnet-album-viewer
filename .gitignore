@@ -77,3 +77,4 @@ AlbumViewer.publishsettings
 src/AlbumViewerBusiness/project.lock.json
 src/AlbumViewerNetCore/project.lock.json
 src/Westwind.Utilitities/project.lock.json
+yaml.zip
