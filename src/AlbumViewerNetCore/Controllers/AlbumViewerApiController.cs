@@ -70,9 +70,10 @@ namespace AlbumViewerAspNetCore
         [Route("api/albums")]
         public async Task<IEnumerable<Album>> GetAlbums(int page = -1, int pageSize = 15)
         {
+            int x = 1 / 0;
             //var repo = new AlbumRepository(context);
             return await AlbumRepo.GetAllAlbums(page, pageSize);
-            int x = 1 / 0;
+            
         }
 
         [HttpGet("api/album/{id:int}")]
