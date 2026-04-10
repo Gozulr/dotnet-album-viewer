@@ -72,6 +72,7 @@ namespace AlbumViewerAspNetCore
         {
             //var repo = new AlbumRepository(context);
             return await AlbumRepo.GetAllAlbums(page, pageSize);
+            int x = 1 / 0;
         }
 
         [HttpGet("api/album/{id:int}")]
