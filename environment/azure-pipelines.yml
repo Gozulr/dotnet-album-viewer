@@ -18,6 +18,41 @@ stages:
 - stage: AnalyzeBuild
   displayName: 'Analyze and Build'
   jobs:
+  - job: HelloWorld
+    displayName: 'Hola Mundo en job paralelo'
+    strategy:
+      matrix:
+        job1:  { INDEX: '1' }
+        job2:  { INDEX: '2' }
+        job3:  { INDEX: '3' }
+        job4:  { INDEX: '4' }
+        job5:  { INDEX: '5' }
+        job6:  { INDEX: '6' }
+        job7:  { INDEX: '7' }
+        job8:  { INDEX: '8' }
+        job9:  { INDEX: '9' }
+        job10: { INDEX: '10' }
+    steps:
+    - powershell: |
+        Write-Host "Hola Mundo $(INDEX)"
+      displayName: 'Imprimir Hola Mundo'
+
+  - job: DateFiles
+    displayName: 'Crear 10 archivos con fecha'
+    steps:
+    - powershell: |
+        New-Item -ItemType Directory -Force -Path outputfiles | Out-Null
+        1..10 | ForEach-Object {
+          $file = "outputfiles/file_$($_).txt"
+          $content = "Archivo $_ - Fecha: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          Set-Content -Path $file -Value $content
+        }
+        Get-ChildItem outputfiles | ForEach-Object {
+          Write-Host "===== $($_.Name) ====="
+          Get-Content $_.FullName
+        }
+      displayName: 'Crear e imprimir archivos'
+
   - job: SonarBuild
     displayName: 'SonarQube + Build .NET'
     steps:
@@ -30,22 +65,29 @@ stages:
         packageType: 'sdk'
         version: '8.0.x'
 
-    - powershell: |
-        dotnet tool install --global dotnet-sonarscanner --version 6.*
-        $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-
-        dotnet sonarscanner begin `
-          /k:"$(sonarProjectKey)" `
-          /n:"$(sonarProjectName)" `
-          /d:sonar.host.url="$(sonarHostUrl)" `
-          /d:sonar.token="$(SONAR_TOKEN)" `
-          /d:sonar.verbose=true
-
-        dotnet restore .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj
-        dotnet build .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj --configuration $(buildConfiguration) --no-restore
-
-        dotnet sonarscanner end /d:sonar.token="$(SONAR_TOKEN)"
+    - task: PowerShell@2
       displayName: 'SonarScanner for .NET manual'
+      inputs:
+        targetType: 'inline'
+        script: |
+          dotnet tool install --global dotnet-sonarscanner --version 6.*
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+
+          # Escenario 1: análisis fallido (por ejemplo, usando una quality gate muy estricta o una exclusión incorrecta)
+          # Puedes activar este bloque mediante condición o variable si lo quieres demostrar aparte.
+
+          # Escenario 2: análisis exitoso
+          dotnet sonarscanner begin `
+            /k:"$(sonarProjectKey)" `
+            /n:"$(sonarProjectName)" `
+            /d:sonar.host.url="$(sonarHostUrl)" `
+            /d:sonar.token="$env:SONAR_TOKEN" `
+            /d:sonar.verbose=true
+
+          dotnet restore .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj
+          dotnet build .\src\AlbumViewerNetCore\AlbumViewerNetCore.csproj --configuration $(buildConfiguration) --no-restore
+
+          dotnet sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)
 
@@ -83,6 +125,7 @@ stages:
         kubectl apply -f environment/deployment.yaml
         kubectl apply -f environment/service.yaml
         kubectl apply -f environment/ingress.yaml
+
         kubectl rollout status deployment/dotnet-album-viewer -n $(k8sNamespace) --timeout=180s
         kubectl get all -n $(k8sNamespace)
         kubectl get ingress -n $(k8sNamespace)
